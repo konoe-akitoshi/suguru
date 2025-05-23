@@ -28,9 +28,23 @@
 
         <!-- 評価結果一覧 -->
         <div class="bg-white rounded-lg shadow-md p-6">
+<div class="flex items-center gap-4 mb-4">
+    <label class="flex items-center gap-2">
+        <span class="text-sm">スコア下限</span>
+        <input type="number" id="scoreMin" class="border rounded p-1 w-20" value="0" min="0" max="10" step="0.1">
+    </label>
+    <label class="flex items-center gap-2">
+        <span class="text-sm">ソート</span>
+        <select id="sortOrder" class="border rounded p-1">
+            <option value="desc">高い順</option>
+            <option value="asc">低い順</option>
+        </select>
+    </label>
+    <button onclick="loadPhotos()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">適用</button>
+</div>
             <h2 class="text-xl font-semibold mb-4">評価結果一覧</h2>
             <div id="errorMessage" class="hidden mb-4 p-4 bg-red-100 text-red-700 rounded"></div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="photoGrid">
+            <ul class="flex flex-col gap-0" id="photoGrid">
                 <!-- 写真カードがここに動的に追加されます -->
             </div>
         </div>
@@ -89,17 +103,35 @@
                     throw new Error(errorData.detail || '写真の読み込みに失敗しました');
                 }
 
-                const photos = await response.json();
+                let photos = await response.json();
                 photoGrid.innerHTML = '';
 
+                // スコア下限・ソート順取得
+                const scoreMin = parseFloat(document.getElementById('scoreMin').value) || 0;
+                const sortOrder = document.getElementById('sortOrder').value;
+
+                // スコアでフィルタ
+                photos = photos.filter(photo =>
+                    photo.evaluation_score !== undefined && photo.evaluation_score !== null && photo.evaluation_score >= scoreMin
+                );
+
+                // スコアでソート
+                photos.sort((a, b) => {
+                    if (sortOrder === 'asc') {
+                        return (a.evaluation_score || 0) - (b.evaluation_score || 0);
+                    } else {
+                        return (b.evaluation_score || 0) - (a.evaluation_score || 0);
+                    }
+                });
+
                 if (photos.length === 0) {
-                    photoGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">評価済みの写真がありません</p>';
+                    photoGrid.innerHTML = '<li class="text-center text-gray-500 py-4">評価済みの写真がありません</li>';
                     return;
                 }
 
                 photos.forEach(photo => {
-                    const card = createPhotoCard(photo);
-                    photoGrid.appendChild(card);
+                    const item = createPhotoListItem(photo);
+                    photoGrid.appendChild(item);
                 });
             } catch (error) {
                 console.error('Error:', error);
@@ -109,30 +141,26 @@
             }
         }
 
-        function createPhotoCard(photo) {
-            const card = document.createElement('div');
-            card.className = 'bg-white rounded-lg shadow-md overflow-hidden';
-            
-            // 画像のパスをエンコード
+        function createPhotoListItem(photo) {
+            const li = document.createElement('li');
+            li.className = 'flex items-center gap-4 p-2 border-b';
+
             const encodedPath = encodeURIComponent(photo.file_path);
-            
-            card.innerHTML = `
-                <div class="relative pb-[75%]">
-                    <img src="/api/photos/image/${encodedPath}" 
-                         alt="${photo.file_name}" 
-                         class="absolute inset-0 w-full h-full object-cover"
-                         onerror="this.src='/static/placeholder.png'">
-                </div>
-                <div class="p-4">
-                    <h3 class="font-semibold mb-2 truncate">${photo.file_name}</h3>
+
+            li.innerHTML = `
+                <img src="/api/photos/image/${encodedPath}"
+                     alt="${photo.file_name}"
+                     class="w-24 h-24 object-cover flex-shrink-0 rounded"
+                     onerror="this.src='/static/placeholder.png'">
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold truncate">${photo.file_name}</div>
                     <div class="text-sm text-gray-600">
-                        <p class="font-medium">スコア: ${photo.evaluation_score.toFixed(1)}</p>
-                        <p class="mt-2 line-clamp-3">${photo.evaluation_comment}</p>
+                        <span class="font-medium">スコア: ${photo.evaluation_score !== undefined && photo.evaluation_score !== null ? photo.evaluation_score.toFixed(1) : 'N/A'}</span>
+                        <span class="ml-4">${photo.evaluation_comment}</span>
                     </div>
                 </div>
             `;
-            
-            return card;
+            return li;
         }
 
         // 初期ロード
