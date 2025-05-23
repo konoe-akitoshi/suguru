@@ -101,16 +101,47 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
         'evaluations': evaluations
     })
 
+from fastapi.responses import FileResponse
+
+@app.get("/api/photos/image/{file_path:path}")
+async def get_photo_image(file_path: str):
+    """
+    指定されたパスの画像ファイルを返す
+    """
+    from urllib.parse import unquote
+    decoded_path = unquote(file_path)
+    # 先頭の余分なスラッシュを除去
+    while decoded_path.startswith("//"):
+        decoded_path = decoded_path[1:]
+    if not os.path.exists(decoded_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    valid_extensions = {'.jpg', '.jpeg', '.png', '.gif'}
+    ext = os.path.splitext(decoded_path)[1].lower()
+    if ext not in valid_extensions:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+    return FileResponse(decoded_path)
 @app.get("/api/photos")
 async def get_photos(skip: int = 0, limit: int = 20):
     """
     評価済みの写真一覧を取得します
     """
     async for db in get_db():
-        query = select(Photo).offset(skip).limit(limit)
+        from sqlalchemy import desc
+        query = select(Photo).order_by(desc(Photo.id)).offset(skip).limit(limit)
         result = await db.execute(query)
         photos = result.scalars().all()
-        return photos
+        # evaluated_atを文字列化して返す
+        photo_dicts = []
+        for photo in photos:
+            photo_dicts.append({
+                "id": photo.id,
+                "file_path": photo.file_path,
+                "file_name": photo.file_name,
+                "evaluation_score": photo.evaluation_score,
+                "evaluation_comment": photo.evaluation_comment,
+                "evaluated_at": photo.evaluated_at.isoformat() if photo.evaluated_at else None
+            })
+        return photo_dicts
 
 if __name__ == "__main__":
     import uvicorn
