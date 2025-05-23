@@ -29,16 +29,16 @@ app.add_middleware(
 # 静的ファイルのマウント
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# データベースの初期化
-@app.on_event("startup")
-async def startup_event():
-    # サーバー起動時にDBファイルをリセット
+# データベース初期化API
+@app.post("/api/init-db")
+async def init_db_endpoint():
     import os
     try:
         os.remove("photos.db")
     except FileNotFoundError:
         pass
     await init_db()
+    return {"message": "DB initialized"}
 
 @app.post("/api/evaluate-photos")
 async def evaluate_photos(directory: Dict[str, str] = Body(...)):
