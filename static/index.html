@@ -116,6 +116,7 @@ async function initDatabase() {
             }
         }
 
+console.log('loadPhotos called');
         async function loadPhotos() {
             const errorMessage = document.getElementById('errorMessage');
             const photoGrid = document.getElementById('photoGrid');
@@ -131,6 +132,9 @@ async function initDatabase() {
 
                 let photos = await response.json();
                 photoGrid.innerHTML = '';
+console.log('photos:', photos);
+console.log('photos before forEach:', photos);
+console.log('isArray:', Array.isArray(photos), photos);
 
                 // スコア下限・ソート順取得
                 const scoreMin = parseFloat(document.getElementById('scoreMin').value) || 0;
@@ -138,25 +142,35 @@ async function initDatabase() {
 
                 // スコアでフィルタ
                 photos = photos.filter(photo =>
-                    photo.evaluation_score !== undefined && photo.evaluation_score !== null && photo.evaluation_score >= scoreMin
+                    photo.evaluation_score &&
+                    typeof photo.evaluation_score === "object" &&
+                    photo.evaluation_score["全体的な印象"] !== undefined &&
+                    photo.evaluation_score["全体的な印象"] >= scoreMin
                 );
 
                 // スコアでソート
                 photos.sort((a, b) => {
+                    const aScore = a.evaluation_score && typeof a.evaluation_score === "object"
+                        ? a.evaluation_score["全体的な印象"] || 0 : 0;
+                    const bScore = b.evaluation_score && typeof b.evaluation_score === "object"
+                        ? b.evaluation_score["全体的な印象"] || 0 : 0;
                     if (sortOrder === 'asc') {
-                        return (a.evaluation_score || 0) - (b.evaluation_score || 0);
+                        return aScore - bScore;
                     } else {
-                        return (b.evaluation_score || 0) - (a.evaluation_score || 0);
+                        return bScore - aScore;
                     }
                 });
+                console.log('photoGrid.innerHTML (empty):', photoGrid.innerHTML);
 
                 if (photos.length === 0) {
                     photoGrid.innerHTML = '<li class="text-center text-gray-500 py-4">評価済みの写真がありません</li>';
+console.log('forEach start', photos);
                     return;
                 }
 
                 photos.forEach(photo => {
                     const item = createPhotoListItem(photo);
+console.log('photoGrid.innerHTML:', photoGrid.innerHTML);
                     photoGrid.appendChild(item);
                 });
             } catch (error) {
@@ -190,11 +204,18 @@ async function initDatabase() {
                 <div class="flex flex-col flex-1 min-w-0">
                     <div class="font-semibold truncate mb-1">${photo.file_name}</div>
                     <div class="text-sm text-gray-600 mb-1">
-                        <span class="font-medium">スコア: ${photo.evaluation_score !== undefined && photo.evaluation_score !== null ? photo.evaluation_score.toFixed(1) : 'N/A'}</span>
+                        <span class="font-medium">全体的な印象: ${
+                            photo.evaluation_score && photo.evaluation_score["全体的な印象"] !== undefined
+                                ? photo.evaluation_score["全体的な印象"]
+                                : 'N/A'
+                        }</span>
                     </div>
                     <div class="text-sm text-gray-600">
-                        <span id="${commentId}">${shortComment}</span>
-                        ${photo.evaluation_comment && photo.evaluation_comment.length > 60 ? `<button class="ml-2 text-blue-500 underline text-xs" onclick="toggleComment('${commentId}', \`${photo.evaluation_comment.replace(/`/g, '\\`')}\`, \`${shortComment.replace(/`/g, '\\`')}\`, this)">もっと見る</button>` : ''}
+                        <span id="${commentId}">${
+                            photo.evaluation_comment && photo.evaluation_comment["全体コメント"]
+                                ? photo.evaluation_comment["全体コメント"]
+                                : ''
+                        }</span>
                     </div>
                 </div>
             `;

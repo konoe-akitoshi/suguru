@@ -143,12 +143,13 @@ async def get_photos(skip: int = 0, limit: int = 20):
         # evaluated_atを文字列化して返す
         photo_dicts = []
         for photo in photos:
+            import json
             photo_dicts.append({
                 "id": photo.id,
                 "file_path": photo.file_path,
                 "file_name": photo.file_name,
-                "evaluation_score": photo.evaluation_score,
-                "evaluation_comment": photo.evaluation_comment,
+                "evaluation_score": json.loads(photo.evaluation_score) if photo.evaluation_score else None,
+                "evaluation_comment": json.loads(photo.evaluation_comment) if photo.evaluation_comment else None,
                 "evaluated_at": photo.evaluated_at.isoformat() if photo.evaluated_at else None
             })
         return photo_dicts
