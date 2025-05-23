@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>写真評価システム</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">写真評価システム</h1>
+        
+        <!-- 評価開始フォーム -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">写真の評価を開始</h2>
+            <div class="flex gap-4">
+                <input type="text" id="directoryPath" placeholder="写真ディレクトリのパス" 
+                       class="flex-1 p-2 border rounded">
+                <button onclick="startEvaluation()" 
+                        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    評価開始
+                </button>
+            </div>
+        </div>
+
+        <!-- 評価結果一覧 -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">評価結果一覧</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="photoGrid">
+                <!-- 写真カードがここに動的に追加されます -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function startEvaluation() {
+            const directoryPath = document.getElementById('directoryPath').value;
+            if (!directoryPath) {
+                alert('ディレクトリパスを入力してください');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/evaluate-photos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ directory: directoryPath }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('評価の開始に失敗しました');
+                }
+
+                const result = await response.json();
+                alert(`評価が完了しました: ${result.message}`);
+                loadPhotos();
+            } catch (error) {
+                alert(`エラーが発生しました: ${error.message}`);
+            }
+        }
+
+        async function loadPhotos() {
+            try {
+                const response = await fetch('/api/photos');
+                const photos = await response.json();
+                
+                const photoGrid = document.getElementById('photoGrid');
+                photoGrid.innerHTML = '';
+
+                photos.forEach(photo => {
+                    const card = createPhotoCard(photo);
+                    photoGrid.appendChild(card);
+                });
+            } catch (error) {
+                console.error('写真の読み込みに失敗しました:', error);
+            }
+        }
+
+        function createPhotoCard(photo) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-lg shadow-md overflow-hidden';
+            
+            card.innerHTML = `
+                <img src="file://${photo.file_path}" alt="${photo.file_name}" 
+                     class="w-full h-48 object-cover">
+                <div class="p-4">
+                    <h3 class="font-semibold mb-2">${photo.file_name}</h3>
+                    <div class="text-sm text-gray-600">
+                        <p>スコア: ${photo.evaluation_score}</p>
+                        <p class="mt-2">${photo.evaluation_comment}</p>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // 初期ロード
+        loadPhotos();
+    </script>
+</body>
+</html> 
