@@ -14,6 +14,10 @@ class OllamaClient:
         """
         # 画像をbase64エンコード
         with Image.open(image_path) as img:
+            # RGBA画像をRGBに変換
+            if img.mode == 'RGBA':
+                img = img.convert('RGB')
+            
             # 画像をリサイズ（メモリ使用量を抑えるため）
             img.thumbnail((800, 800))
             buffered = io.BytesIO()

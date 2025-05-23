@@ -16,8 +16,8 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
 
 async def get_db():
-    async with SessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close() 
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        await db.close() 
