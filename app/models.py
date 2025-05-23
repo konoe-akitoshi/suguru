@@ -9,7 +9,7 @@ class Photo(Base):
     id = Column(Integer, primary_key=True, index=True)
     file_path = Column(String, unique=True, index=True)
     file_name = Column(String)
-    evaluation_score = Column(Float)
+    evaluation_score = Column(String)
     evaluation_comment = Column(String)
     evaluated_at = Column(DateTime, default=datetime.utcnow)
     evaluations = relationship("PhotoEvaluation", back_populates="photo")

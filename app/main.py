@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import os
+import json
 from pathlib import Path
 from typing import List, Dict
 import asyncio
@@ -76,7 +77,7 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
                 
                 if existing_photo:
                     # 既存の写真を更新
-                    existing_photo.evaluation_score = evaluation['score']
+                    existing_photo.evaluation_score = json.dumps(evaluation['score'], ensure_ascii=False)
                     existing_photo.evaluation_comment = evaluation['comment']
                     existing_photo.evaluated_at = datetime.now()
                 else:
@@ -84,7 +85,7 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
                     photo = Photo(
                         file_path=str(photo_path),
                         file_name=photo_path.name,
-                        evaluation_score=evaluation['score'],
+                        evaluation_score=json.dumps(evaluation['score'], ensure_ascii=False),
                         evaluation_comment=evaluation['comment'],
                         evaluated_at=datetime.now()
                     )
