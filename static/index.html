@@ -116,7 +116,6 @@ async function initDatabase() {
             }
         }
 
-console.log('loadPhotos called');
         async function loadPhotos() {
             const errorMessage = document.getElementById('errorMessage');
             const photoGrid = document.getElementById('photoGrid');
@@ -132,9 +131,6 @@ console.log('loadPhotos called');
 
                 let photos = await response.json();
                 photoGrid.innerHTML = '';
-console.log('photos:', photos);
-console.log('photos before forEach:', photos);
-console.log('isArray:', Array.isArray(photos), photos);
 
                 // スコア下限・ソート順取得
                 const scoreMin = parseFloat(document.getElementById('scoreMin').value) || 0;
@@ -160,17 +156,14 @@ console.log('isArray:', Array.isArray(photos), photos);
                         return bScore - aScore;
                     }
                 });
-                console.log('photoGrid.innerHTML (empty):', photoGrid.innerHTML);
 
                 if (photos.length === 0) {
                     photoGrid.innerHTML = '<li class="text-center text-gray-500 py-4">評価済みの写真がありません</li>';
-console.log('forEach start', photos);
                     return;
                 }
 
                 photos.forEach(photo => {
                     const item = createPhotoListItem(photo);
-console.log('photoGrid.innerHTML:', photoGrid.innerHTML);
                     photoGrid.appendChild(item);
                 });
             } catch (error) {
