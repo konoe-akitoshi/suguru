@@ -32,11 +32,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # データベース初期化API
 @app.post("/api/init-db")
 async def init_db_endpoint():
-    import os
-    try:
-        os.remove("photos.db")
-    except FileNotFoundError:
-        pass
     await init_db()
     return {"message": "DB initialized"}
 
@@ -99,7 +94,7 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
                     file_path=r['file_path'],
                     file_name=r['file_name'],
                     evaluation_score=json.dumps(r['score'], ensure_ascii=False),
-                    evaluation_comment=r['comment'],
+                    evaluation_comment=json.dumps(r['comment'], ensure_ascii=False),
                     evaluated_at=r['evaluated_at']
                 )
                 db.add(photo)
