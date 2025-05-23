@@ -66,41 +66,49 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
     
     # 各写真を評価
     async for db in get_db():
-        for photo_path in photo_files:
+        # 既存ファイルパスを一括取得
+        existing_paths = set(
+            row[0] for row in (await db.execute(select(Photo.file_path))).all()
+        )
+        # 未評価ファイルのみ抽出
+        new_photo_files = [p for p in photo_files if str(p) not in existing_paths]
+        skipped = len(photo_files) - len(new_photo_files)
+
+        # 並列で評価
+        async def evaluate_and_pack(photo_path):
             try:
-                # 写真の評価
                 evaluation = await evaluate_photo(str(photo_path), ollama_client)
-                
-                # 既存の写真を検索
-                query = select(Photo).where(Photo.file_path == str(photo_path))
-                result = await db.execute(query)
-                existing_photo = result.scalar_one_or_none()
-                
-                if existing_photo:
-                    skipped += 1
-                    continue
-                else:
-                    # 新しい写真を追加
-                    photo = Photo(
-                        file_path=str(photo_path),
-                        file_name=photo_path.name,
-                        evaluation_score=json.dumps(evaluation['score'], ensure_ascii=False),
-                        evaluation_comment=evaluation['comment'],
-                        evaluated_at=datetime.now()
-                    )
-                    db.add(photo)
-                
-                await db.commit()
-                
-                evaluations.append({
+                return {
                     'file_path': str(photo_path),
+                    'file_name': photo_path.name,
                     'score': evaluation['score'],
-                    'comment': evaluation['comment']
-                })
-                
+                    'comment': evaluation['comment'],
+                    'evaluated_at': datetime.now()
+                }
             except Exception as e:
                 print(f"Error evaluating {photo_path}: {str(e)}")
-                continue
+                return None
+
+        tasks = [evaluate_and_pack(photo_path) for photo_path in new_photo_files]
+        results = await asyncio.gather(*tasks)
+
+        # DBにまとめて追加
+        for r in results:
+            if r is not None:
+                photo = Photo(
+                    file_path=r['file_path'],
+                    file_name=r['file_name'],
+                    evaluation_score=json.dumps(r['score'], ensure_ascii=False),
+                    evaluation_comment=r['comment'],
+                    evaluated_at=r['evaluated_at']
+                )
+                db.add(photo)
+                evaluations.append({
+                    'file_path': r['file_path'],
+                    'score': r['score'],
+                    'comment': r['comment']
+                })
+        await db.commit()
     
     return JSONResponse(content={
         'message': f'Evaluated {len(evaluations)} photos, skipped {skipped} duplicates',
