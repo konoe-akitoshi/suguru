@@ -59,6 +59,7 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
     
     # 評価結果を保存するリスト
     evaluations = []
+    skipped = 0
     
     # Ollamaクライアントの初期化
     ollama_client = OllamaClient()
@@ -76,10 +77,8 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
                 existing_photo = result.scalar_one_or_none()
                 
                 if existing_photo:
-                    # 既存の写真を更新
-                    existing_photo.evaluation_score = json.dumps(evaluation['score'], ensure_ascii=False)
-                    existing_photo.evaluation_comment = evaluation['comment']
-                    existing_photo.evaluated_at = datetime.now()
+                    skipped += 1
+                    continue
                 else:
                     # 新しい写真を追加
                     photo = Photo(
@@ -104,8 +103,9 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
                 continue
     
     return JSONResponse(content={
-        'message': f'Evaluated {len(evaluations)} photos',
-        'evaluations': evaluations
+        'message': f'Evaluated {len(evaluations)} photos, skipped {skipped} duplicates',
+        'evaluations': evaluations,
+        'skipped': skipped
     })
 
 from fastapi.responses import FileResponse
