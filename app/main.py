@@ -31,6 +31,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # データベースの初期化
 @app.on_event("startup")
 async def startup_event():
+    # サーバー起動時にDBファイルをリセット
+    import os
+    try:
+        os.remove("photos.db")
+    except FileNotFoundError:
+        pass
     await init_db()
 
 @app.post("/api/evaluate-photos")
