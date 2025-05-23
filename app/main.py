@@ -57,32 +57,44 @@ async def evaluate_photos(directory: Dict[str, str] = Body(...)):
     ollama_client = OllamaClient()
     
     # 各写真を評価
-    for photo_path in photo_files:
-        try:
-            # 写真の評価
-            evaluation = await evaluate_photo(str(photo_path), ollama_client)
-            
-            # データベースに保存
-            async for db in get_db():
-                photo = Photo(
-                    file_path=str(photo_path),
-                    file_name=photo_path.name,
-                    evaluation_score=evaluation['score'],
-                    evaluation_comment=evaluation['comment'],
-                    evaluated_at=datetime.now()
-                )
-                db.add(photo)
+    async for db in get_db():
+        for photo_path in photo_files:
+            try:
+                # 写真の評価
+                evaluation = await evaluate_photo(str(photo_path), ollama_client)
+                
+                # 既存の写真を検索
+                query = select(Photo).where(Photo.file_path == str(photo_path))
+                result = await db.execute(query)
+                existing_photo = result.scalar_one_or_none()
+                
+                if existing_photo:
+                    # 既存の写真を更新
+                    existing_photo.evaluation_score = evaluation['score']
+                    existing_photo.evaluation_comment = evaluation['comment']
+                    existing_photo.evaluated_at = datetime.now()
+                else:
+                    # 新しい写真を追加
+                    photo = Photo(
+                        file_path=str(photo_path),
+                        file_name=photo_path.name,
+                        evaluation_score=evaluation['score'],
+                        evaluation_comment=evaluation['comment'],
+                        evaluated_at=datetime.now()
+                    )
+                    db.add(photo)
+                
                 await db.commit()
-            
-            evaluations.append({
-                'file_path': str(photo_path),
-                'score': evaluation['score'],
-                'comment': evaluation['comment']
-            })
-            
-        except Exception as e:
-            print(f"Error evaluating {photo_path}: {str(e)}")
-            continue
+                
+                evaluations.append({
+                    'file_path': str(photo_path),
+                    'score': evaluation['score'],
+                    'comment': evaluation['comment']
+                })
+                
+            except Exception as e:
+                print(f"Error evaluating {photo_path}: {str(e)}")
+                continue
     
     return JSONResponse(content={
         'message': f'Evaluated {len(evaluations)} photos',

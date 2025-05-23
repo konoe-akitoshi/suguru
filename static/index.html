@@ -21,11 +21,15 @@
                     評価開始
                 </button>
             </div>
+            <div id="loadingMessage" class="hidden mt-4 text-blue-600">
+                評価中です...しばらくお待ちください。
+            </div>
         </div>
 
         <!-- 評価結果一覧 -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <h2 class="text-xl font-semibold mb-4">評価結果一覧</h2>
+            <div id="errorMessage" class="hidden mb-4 p-4 bg-red-100 text-red-700 rounded"></div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="photoGrid">
                 <!-- 写真カードがここに動的に追加されます -->
             </div>
@@ -40,7 +44,13 @@
                 return;
             }
 
+            const loadingMessage = document.getElementById('loadingMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            
             try {
+                loadingMessage.classList.remove('hidden');
+                errorMessage.classList.add('hidden');
+
                 const response = await fetch('/api/evaluate-photos', {
                     method: 'POST',
                     headers: {
@@ -50,31 +60,52 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('評価の開始に失敗しました');
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || '評価の開始に失敗しました');
                 }
 
                 const result = await response.json();
                 alert(`評価が完了しました: ${result.message}`);
-                loadPhotos();
+                await loadPhotos();
             } catch (error) {
-                alert(`エラーが発生しました: ${error.message}`);
+                console.error('Error:', error);
+                errorMessage.textContent = `エラーが発生しました: ${error.message}`;
+                errorMessage.classList.remove('hidden');
+            } finally {
+                loadingMessage.classList.add('hidden');
             }
         }
 
         async function loadPhotos() {
+            const errorMessage = document.getElementById('errorMessage');
+            const photoGrid = document.getElementById('photoGrid');
+            
             try {
+                errorMessage.classList.add('hidden');
                 const response = await fetch('/api/photos');
-                const photos = await response.json();
                 
-                const photoGrid = document.getElementById('photoGrid');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || '写真の読み込みに失敗しました');
+                }
+
+                const photos = await response.json();
                 photoGrid.innerHTML = '';
+
+                if (photos.length === 0) {
+                    photoGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">評価済みの写真がありません</p>';
+                    return;
+                }
 
                 photos.forEach(photo => {
                     const card = createPhotoCard(photo);
                     photoGrid.appendChild(card);
                 });
             } catch (error) {
-                console.error('写真の読み込みに失敗しました:', error);
+                console.error('Error:', error);
+                errorMessage.textContent = `エラーが発生しました: ${error.message}`;
+                errorMessage.classList.remove('hidden');
+                photoGrid.innerHTML = '';
             }
         }
 
@@ -82,14 +113,21 @@
             const card = document.createElement('div');
             card.className = 'bg-white rounded-lg shadow-md overflow-hidden';
             
+            // 画像のパスをエンコード
+            const encodedPath = encodeURIComponent(photo.file_path);
+            
             card.innerHTML = `
-                <img src="file://${photo.file_path}" alt="${photo.file_name}" 
-                     class="w-full h-48 object-cover">
+                <div class="relative pb-[75%]">
+                    <img src="/api/photos/image/${encodedPath}" 
+                         alt="${photo.file_name}" 
+                         class="absolute inset-0 w-full h-full object-cover"
+                         onerror="this.src='/static/placeholder.png'">
+                </div>
                 <div class="p-4">
-                    <h3 class="font-semibold mb-2">${photo.file_name}</h3>
+                    <h3 class="font-semibold mb-2 truncate">${photo.file_name}</h3>
                     <div class="text-sm text-gray-600">
-                        <p>スコア: ${photo.evaluation_score}</p>
-                        <p class="mt-2">${photo.evaluation_comment}</p>
+                        <p class="font-medium">スコア: ${photo.evaluation_score.toFixed(1)}</p>
+                        <p class="mt-2 line-clamp-3">${photo.evaluation_comment}</p>
                     </div>
                 </div>
             `;
